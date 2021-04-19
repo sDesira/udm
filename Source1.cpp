@@ -17,25 +17,84 @@
 		// check eeprom units state (in, cm)
 			// LED ON for cm, OFF for in
 		// math, convert
-		// display 2s
 
-	// back to standby
 
 //-----------------------------------------------------------------------------------------------------------------------
 
-// code for isr module 
-CY_ISR(distanceMeter) {
+#include "project.h" // not sure if needed, included in all other modules
+//#include <stdio.h> // not sure if needed
+#include <stdlib.h>
+#include <time.h> // needed for timed display
 
+int compare(const void* a, const void* b) {
+	// needed to determine median of measurements
+	return (*(int*)a - *(int*)b);
+}
+
+
+CY_ISR(distanceMeter) {
+	float readings[7] = { 0 };
+	float dist;
+
+	int unit[] = { 1000, 100, 10, 1 };
+	int broken[4] = { 0 };
+	int segA, segB, segC, segD, segE, segF, segG, segDP;
+	int indA[] = { 0, 1, 0, 0, 1, 0, 0, 0, 0, 0 };
+	int indB[] = { 0, 0, 0, 0, 0, 1, 1, 0, 0, 0 };
+	int indC[] = { 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 };
+	int indD[] = { 0, 1, 0, 0, 1, 0, 0, 1, 0, 0 };
+	int indE[] = { 0, 1, 0, 1, 1, 1, 0, 1, 0, 0 };
+	int indF[] = { 0, 1, 1, 1, 0, 0, 0, 1, 0, 0 };
+	int indG[] = { 1, 1, 0, 0, 0, 0, 0, 1, 0, 0 };
+
+	time_t start, now;
+	double elapsed = 0;
+
+	// BEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEP
+
+	for (int i = 0; i < sizeof(readings) / sizeof(readings[0]); i++) {
+		readings[i] = ;//PUT RETURN VALUE HERE
+	}
+	qsort(readings, (sizeof(readings) / sizeof(readings[0])), sizeof(float), compare);
+	dist = readings[2]; // take median
+
+	// CONVERT MEASUREMENT TO DISTANCE
+
+	time(&start);
+
+	while (elapsed < 2) {
+		for (int u = 0; u < sizeof(unit) / sizeof(unit[0]); u++) {
+			int count = 0;
+			while (dist >= unit[u]) {
+				dist = dist - unit[u];
+				count++;
+			}
+			// outputs to corresponding segments
+			segA = indA[count];
+			segB = indB[count];
+			segC = indC[count];
+			segD = indD[count];
+			segE = indE[count];
+			segF = indF[count];
+			segG = indG[count];
+
+			// accurate to one dp
+			if (dist != (int)dist && u == sizeof(unit) / sizeof(unit[0]) - 2) { segDP = 1; }
+			else { segDP = 0; }
+		}
+		elapsed = difftime(time(&now), start);
+	}
 }
 
 int main(void) {
 	CyGlobalIntEnable;
 	isr_1_ClearPending; // cancel pending interrupts
+
 	// read from eeprom
 
 	isr_1_StartEx(distanceMeter);
 
-	// start standby sequence
+	// standby sequence
 		// segDP flashing at 1Hz
 	for (;;) {
 		segDP = ~segDP;
@@ -44,38 +103,3 @@ int main(void) {
 }
 
 //------------------------------------------------------------------------------------------------------------------------
-
-
-// converts decimal value (<10,000) into 7 segment display
-// use array to store values by unit and put segment displays in separate loop which iterates for 2s
-float dist = 7325.4; // test value, would be calculated distance of object
-int unit[] = { 1000, 100, 10, 1 };
-int broken[4] = { 0 };
-int segA, segB, segC, segD, segE, segF, segG, segDP;
-int indA[] = {0, 1, 0, 0, 1, 0, 0, 0, 0, 0};
-int indB[] = {0, 0, 0, 0, 0, 1, 1, 0, 0, 0};
-int indC[] = {0, 0, 1, 0, 0, 0, 0, 0, 0, 0};
-int indD[] = {0, 1, 0, 0, 1, 0, 0, 1, 0, 0};
-int indE[] = {0, 1, 0, 1, 1, 1, 0, 1, 0, 0};
-int indF[] = {0, 1, 1, 1, 0, 0, 0, 1, 0, 0};
-int indG[] = {1, 1, 0, 0, 0, 0, 0, 1, 0, 0};
-
-for (int u = 0; u < sizeof(unit)/sizeof(unit[0]); u++) {
-	int count = 0;
-	while (dist >= unit[u]) {
-		dist = dist - unit[u];
-		count++;
-	}
-	segA = indA[count];
-	segB = indB[count];
-	segC = indC[count];
-	segD = indD[count];
-	segE = indE[count];
-	segF = indF[count];
-	segG = indG[count];
-
-	// accurate to one dp
-	// used sizeof function to avoid hardcoding
-	if (dist != (int)dist  &&  u == sizeof(unit) / sizeof(unit[0]) - 2) { segDP = 1; }
-	else { segDP = 0; }
-}
