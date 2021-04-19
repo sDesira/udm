@@ -5,7 +5,7 @@
 
 // if switch pressed (isr module)
 		// set to rising edge (runs when button pushed)
-		// assign priority 0
+		// assign priority 1
 	// interrupt
 
 	// beep 200ms
@@ -21,8 +21,8 @@
 
 //-----------------------------------------------------------------------------------------------------------------------
 
-#include "project.h" // not sure if needed, included in all other modules
-//#include <stdio.h> // not sure if needed
+#include "project.h" 
+#include <stdio.h> // not sure if needed
 #include <stdlib.h>
 #include <time.h> // needed for timed display
 
@@ -31,6 +31,12 @@ int compare(const void* a, const void* b) {
 	return (*(int*)a - *(int*)b);
 }
 
+CY_ISR(switchStates) {
+	// 1 if cm
+	// link to LED
+	metric_Write = (~metric_Read());
+	EEPROM_WriteByte(metric, 0);
+}
 
 CY_ISR(distanceMeter) {
 	float readings[7] = { 0 };
@@ -70,17 +76,17 @@ CY_ISR(distanceMeter) {
 				count++;
 			}
 			// outputs to corresponding segments
-			segA = indA[count];
-			segB = indB[count];
-			segC = indC[count];
-			segD = indD[count];
-			segE = indE[count];
-			segF = indF[count];
-			segG = indG[count];
+			segA_Write = indA[count];
+			segB_Write = indB[count];
+			segC_Write = indC[count];
+			segD_Write = indD[count];
+			segE_Write = indE[count];
+			segF_Write = indF[count];
+			segG_Write = indG[count];
 
 			// accurate to one dp
 			if (dist != (int)dist && u == sizeof(unit) / sizeof(unit[0]) - 2) { segDP = 1; }
-			else { segDP = 0; }
+			else { segDP_Write = 0; }
 		}
 		elapsed = difftime(time(&now), start);
 	}
@@ -89,15 +95,22 @@ CY_ISR(distanceMeter) {
 int main(void) {
 	CyGlobalIntEnable;
 	isr_1_ClearPending; // cancel pending interrupts
+	isr_2_ClearPending;
 
 	// read from eeprom
+	EEPROM_Start();
 
-	isr_1_StartEx(distanceMeter);
+	metric_Write = EEPROM_ReadByte(0);
+
+	isr_1_StartEx(switchState);
+	isr_2_StartEx(distanceMeter);
+
+	
 
 	// standby sequence
 		// segDP flashing at 1Hz
 	for (;;) {
-		segDP = ~segDP;
+		segDP_Write = (~segDP_Read()); //!!
 		CyDelay(500);
 	}
 }
