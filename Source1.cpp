@@ -1,7 +1,7 @@
 // eeprom needs to store
 	// calibration data (done once)
 	// cm/in state (linked to LED)
-	// group number	
+	// group number
 
 // if switch pressed (isr module)
 		// set to rising edge (runs when button pushed)
@@ -21,7 +21,7 @@
 
 //-----------------------------------------------------------------------------------------------------------------------
 
-#include "project.h" 
+#include "project.h"
 #include <stdio.h> // not sure if needed
 #include <stdlib.h>
 #include <time.h> // needed for timed display
@@ -105,7 +105,7 @@ int main(void) {
 	isr_1_StartEx(switchState);
 	isr_2_StartEx(distanceMeter);
 
-	
+
 
 	// standby sequence
 		// segDP flashing at 1Hz
@@ -113,6 +113,30 @@ int main(void) {
 		segDP_Write = (~segDP_Read()); //!!
 		CyDelay(500);
 	}
+
+	/* calibration
+	cal_result = empty array for each calibration value
+	distance = 0;
+
+	for (loop through each calibration value)
+		calibration(i) = Read Calibration values from EEPROM
+	end
+
+	for (loop through each calibration value)
+		while(distance < 0.9*calibration(i) OR distance > 1.1*calibration(i))
+			calib_volt = read VDAC value
+			if calib_volt > 4080
+				break
+			calib_volt = calib_volt + 100 (mV)
+			VDAC write(calib_volt)
+			distance = get distance measurement (median)
+		cal_result = calib_volt
+	for (loop through calibration results)
+		cal = cal + cal_result(i)
+	cal = cal/6
+	VDAC write(cal)
+
+	*/
 }
 
 //------------------------------------------------------------------------------------------------------------------------
