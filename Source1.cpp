@@ -1,3 +1,11 @@
+// PINS TO HAVE
+/*
+Buzzer - connected to buzzer pin on keypad
+metric - toggle switch for units (in/cm), on keypad
+segA -> segG, segDP - writing to seven segment display
+*/
+
+
 // eeprom needs to store
 	// calibration data (done once)
 	// cm/in state (linked to LED)
@@ -25,6 +33,9 @@
 #include <stdio.h> // not sure if needed
 #include <stdlib.h>
 #include <time.h> // needed for timed display
+#include <math.h>
+
+#define M 7 // number of measurements
 
 int compare(const void* a, const void* b) {
 	// needed to determine median of measurements
@@ -34,12 +45,14 @@ int compare(const void* a, const void* b) {
 CY_ISR(switchStates) {
 	// 1 if cm
 	// link to LED
-	metric_Write = (~metric_Read());
-	EEPROM_WriteByte(metric, 0);
+	metric_Write(~metric_Read());
+
+	if (metric_Read()) { EEPROM_WriteByte(1, 0); }
+	else { EEPROM_WriteByte(0, 0); }
 }
 
 CY_ISR(distanceMeter) {
-	float readings[7] = { 0 };
+	float readings[M] = { 0 };
 	float dist;
 
 	int unit[] = { 1000, 100, 10, 1 };
@@ -56,13 +69,16 @@ CY_ISR(distanceMeter) {
 	time_t start, now;
 	double elapsed = 0;
 
-	// BEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEP
+	Buzzer_Write(1);
+	CyDelay(200);
+	Buzzer_Write(0);
+	
 
-	for (int i = 0; i < sizeof(readings) / sizeof(readings[0]); i++) {
+	for (int i = 0; i < M; i++) {
 		readings[i] = ;//PUT RETURN VALUE HERE
 	}
-	qsort(readings, (sizeof(readings) / sizeof(readings[0])), sizeof(float), compare);
-	dist = readings[2]; // take median
+	qsort(readings, M, sizeof(float), compare);
+	dist = readings[M/2-1]; // take median
 
 	// CONVERT MEASUREMENT TO DISTANCE
 
@@ -76,16 +92,16 @@ CY_ISR(distanceMeter) {
 				count++;
 			}
 			// outputs to corresponding segments
-			segA_Write = indA[count];
-			segB_Write = indB[count];
-			segC_Write = indC[count];
-			segD_Write = indD[count];
-			segE_Write = indE[count];
-			segF_Write = indF[count];
-			segG_Write = indG[count];
+			segA_Write(indA[count]);
+			segB_Write(indB[count]);
+			segC_Write(indC[count]);
+			segD_Write(indD[count]);
+			segE_Write(indE[count]);
+			segF_Write(indF[count]);
+			segG_Write(indG[count]);
 
 			// accurate to one dp
-			if (dist != (int)dist && u == sizeof(unit) / sizeof(unit[0]) - 2) { segDP = 1; }
+			if (dist != (int)dist && u == sizeof(unit) / sizeof(unit[0]) - 2) { segDP_Write = 1; }
 			else { segDP_Write = 0; }
 		}
 		elapsed = difftime(time(&now), start);
@@ -100,7 +116,9 @@ int main(void) {
 	// read from eeprom
 	EEPROM_Start();
 
-	metric_Write = EEPROM_ReadByte(0);
+	metric_Write(EEPROM_ReadByte(0));
+
+	if 
 
 	isr_1_StartEx(switchState);
 	isr_2_StartEx(distanceMeter);
@@ -110,9 +128,54 @@ int main(void) {
 	// standby sequence
 		// segDP flashing at 1Hz
 	for (;;) {
-		segDP_Write = (~segDP_Read()); //!!
+		segDP_Write(~segDP_Read()); //!!
 		CyDelay(500);
 	}
 }
 
 //------------------------------------------------------------------------------------------------------------------------
+// takes 6 measurements, returns line of best fit using least squares method
+float y[6] = { 5, 10, 15, 20, 25, 30 };
+float x[6], sumX = 0, sumX2 = 0, sumY = 0, sumXY = 0, m, b;
+
+for (i = 0, i < sizeof(x) / sizeof(x[0]), i++) {
+	x[i] = ;// RETURN VARIABLE HERE
+	sumX += x[i];
+	sumX2 += pow(x[i], 2);
+	sumY += y[i];
+	sumXY += x[i] * y[i];
+}
+
+b = (n * sumXY - sumX * sumY) / (n * sumX2 - pow(sumX, 2));
+m = (sumY - b * sumX) / n;
+
+// takes x, returns y from line of best fit
+
+float xread; // RETURN VALUE FROM TRANSDUCER
+float yval = -m * xread + b;
+
+
+
+/* calibration
+cal_result = empty array for each calibration value
+distance = 0;
+
+for (loop through each calibration value)
+	calibration(i) = Read Calibration values from EEPROM
+end
+
+for (loop through each calibration value)
+	while(distance < 0.9*calibration(i) OR distance > 1.1*calibration(i))
+		calib_volt = read VDAC value
+		if calib_volt > 4080
+			break
+		calib_volt = calib_volt + 100 (mV)
+		VDAC write(calib_volt)
+		distance = get distance measurement (median)
+	cal_result = calib_volt
+for (loop through calibration results)
+	cal = cal + cal_result(i)
+cal = cal/6
+VDAC write(cal)
+
+*/
